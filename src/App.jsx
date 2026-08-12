@@ -38,101 +38,71 @@ function extractJSON(raw) {
 async function callGemini({ system, messages, max_tokens = 4096 }) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-  const contents = messages.map(m => {
+  if (!apiKey) {
+    throw new Error("VITE_GEMINI_API_KEY não configurada.");
+  }
+
+  const contents = messages.map((m) => {
+    const role = m.role === "assistant" ? "model" : "user";
+
     if (Array.isArray(m.content)) {
-      const parts = m.content.map(c => {
-        if (c.type === "text") return { text: c.text };
+      const parts = m.content.map((c) => {
+        if (c.type === "text") {
+          return { text: c.text };
+        }
+
         if (c.type === "image") {
           return {
             inlineData: {
               mimeType: c.source.media_type,
-              data: c.source.data
-            }
+              data: c.source.data,
+            },
           };
         }
+
         return { text: "" };
       });
-      return { role: m.role === "assistant" ? "model" : "user", parts };
+
+      return { role, parts };
     }
+
     return {
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }]
-    };
-  });
-
-  if (system) {
-    contents.unshift({
-      role: "user",
-      parts: [{ text: `[Instrução do Sistema]: ${system}` }]
-    });
-  }
-
-  const config = {
-    maxOutputTokens: max_tokens,
-  };
-
-  if (system) {
-    config.systemInstruction = system;
-  }
-
-  async function callGemini({ system, messages, max_tokens = 4096 }) {
-  const contents = messages.map(m => {
-    if (Array.isArray(m.content)) {
-      const parts = m.content.map(c => {
-        if (c.type === "text") return { text: c.text };
-        if (c.type === "image") {
-          return {
-            inlineData: {
-              mimeType: c.source.media_type,
-              data: c.source.data
-            }
-          };
-        }
-        return { text: "" };
-      });
-      return { role: m.role === "assistant" ? "model" : "user", parts };
-    }
-    return {
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }]
+      role,
+      parts: [{ text: String(m.content ?? "") }],
     };
   });
 
   const body = {
     contents,
-    generationConfig: { maxOutputTokens: max_tokens }
+    generationConfig: {
+      maxOutputTokens: max_tokens,
+    },
   };
 
   if (system) {
     body.systemInstruction = {
-      parts: [{ text: system }]
+      parts: [{ text: system }],
     };
   }
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const resp = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
 
   const data = await resp.json();
-  return data;
-}
-    model: "gemini-1.5-flash",
-    contents: contents,
-    config: config,
-  });
 
-  return {
-    candidates: [{
-      content: {
-        parts: [{ text: response.text }]
-      }
-    }]
-  };
+  if (!resp.ok) {
+    console.error("Gemini API error:", data);
+    throw new Error(data?.error?.message || `Erro da API Gemini (${resp.status})`);
+  }
+
+  return data;
 }
 
 // ----------------------------- storage -----------------------------
@@ -1005,7 +975,7 @@ Analise o conteúdo enviado (texto ou imagem) e responda APENAS com um JSON vál
   "commonMistakes": ["erro 1"],
   "mindMap": {"center": "tema central", "branches": [{"topic": "ramo 1", "children": ["sub 1", "sub 2"]}]},
   "videos": [
-    { "title": "Título do vídeo", "channel": "Canal", "url": "[https://youtube.com/watch?v=exemplo](https://youtube.com/watch?v=exemplo)", "duration": "10:00", "reason": "Por que assistir" }
+    { "title": "Título do vídeo", "channel": "Canal", "url": "https://www.youtube.com/watch?v=exemplo", "duration": "10:00", "reason": "Por que assistir" }
   ]
 }
 Baseie a aula exclusivamente no conteúdo enviado. Preencha a lista de "videos" com 2 ou 3 vídeos reais e úteis do YouTube relevantes ao assunto.`;
