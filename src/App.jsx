@@ -67,19 +67,27 @@ async function callGemini({ system, messages, max_tokens = 4096 }) {
     });
   }
 
-  const body = {
-    contents,
-    generationConfig: { maxOutputTokens: max_tokens }
+  const config = {
+    maxOutputTokens: max_tokens,
   };
 
-  const resp = await fetch(`[https://generativelanguage.googleapis.com/v1beta/models/$](https://generativelanguage.googleapis.com/v1beta/models/$){MODEL}:generateContent?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+  if (system) {
+    config.systemInstruction = system;
+  }
+
+  const response = await ai.models.generateContent({
+    model: "gemini-1.5-flash",
+    contents: contents,
+    config: config,
   });
-  
-  const data = await resp.json();
-  return data;
+
+  return {
+    candidates: [{
+      content: {
+        parts: [{ text: response.text }]
+      }
+    }]
+  };
 }
 
 // ----------------------------- storage -----------------------------
