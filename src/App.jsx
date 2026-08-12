@@ -11,9 +11,7 @@ import {
 } from "recharts";
 
 // ----------------------------- helpers -----------------------------
-import { GoogleGenAI } from "https://esm.run/@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 const MODEL = "gemini-1.5-flash";
 
 function extractText(data) {
@@ -77,7 +75,52 @@ async function callGemini({ system, messages, max_tokens = 4096 }) {
     config.systemInstruction = system;
   }
 
-  const response = await ai.models.generateContent({
+  async function callGemini({ system, messages, max_tokens = 4096 }) {
+  const contents = messages.map(m => {
+    if (Array.isArray(m.content)) {
+      const parts = m.content.map(c => {
+        if (c.type === "text") return { text: c.text };
+        if (c.type === "image") {
+          return {
+            inlineData: {
+              mimeType: c.source.media_type,
+              data: c.source.data
+            }
+          };
+        }
+        return { text: "" };
+      });
+      return { role: m.role === "assistant" ? "model" : "user", parts };
+    }
+    return {
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }]
+    };
+  });
+
+  const body = {
+    contents,
+    generationConfig: { maxOutputTokens: max_tokens }
+  };
+
+  if (system) {
+    body.systemInstruction = {
+      parts: [{ text: system }]
+    };
+  }
+
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  const data = await resp.json();
+  return data;
+}
     model: "gemini-1.5-flash",
     contents: contents,
     config: config,
