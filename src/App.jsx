@@ -12,7 +12,7 @@ import {
 
 // ----------------------------- helpers -----------------------------
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-1.5-flash";
 
 function extractText(data) {
   const textOutput = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
