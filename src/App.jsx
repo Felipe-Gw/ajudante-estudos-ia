@@ -11,7 +11,7 @@ import {
 } from "recharts";
 
 // ----------------------------- helpers -----------------------------
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from "https://esm.run/@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 const MODEL = "gemini-1.5-flash";
