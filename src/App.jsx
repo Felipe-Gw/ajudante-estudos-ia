@@ -720,3 +720,5 @@ Avalie o conteúdo semântico, não exija palavras exatas. Considere respostas p
     </div>
   );
 }
+
+export default App;
