@@ -108,25 +108,6 @@ function ProgressBar({ value, colorClass = "bg-indigo-600" }) {
   );
 }
 
-function MasteryDot({ level }) {
-  const map = {
-    green: "bg-emerald-500",
-    yellow: "bg-amber-400",
-    red: "bg-rose-500",
-  };
-  const label = { green: "Dominado", yellow: "Em desenvolvimento", red: "Precisa estudar" };
-  return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-      <span className={`w-2 h-2 rounded-full ${map[level] || "bg-slate-300"}`} />
-      {label[level] || "Sem dados"}
-    </span>
-  );
-}
-
-function Spinner({ className = "w-5 h-5" }) {
-  return <Loader2 className={`${className} animate-spin`} />;
-}
-
 function TopBar({ title, onBack, right }) {
   return (
     <div className="flex items-center justify-between px-5 py-4 sticky top-0 bg-white/90 backdrop-blur border-b border-slate-100 z-10">
@@ -143,7 +124,7 @@ function TopBar({ title, onBack, right }) {
   );
 }
 
-// ----------------------------- calculator -----------------------------
+// ----------------------------- CALCULATOR -----------------------------
 
 function Calculator({ onClose }) {
   const [expr, setExpr] = useState("");
@@ -154,7 +135,6 @@ function Calculator({ onClose }) {
     try {
       const sanitized = expr.replace(/[^0-9+\-×÷().,]/g, "")
         .replace(/×/g, "*").replace(/÷/g, "/").replace(/,/g, ".");
-      // eslint-disable-next-line no-new-func
       const result = Function(`"use strict";return (${sanitized})`)();
       setExpr(String(result));
     } catch (e) {
@@ -242,485 +222,196 @@ function HomeScreen({ subjects, onNewStudy, onOpenSubject, onHistory }) {
   );
 }
 
-// ----------------------------- INPUT -----------------------------
+// ----------------------------- MAIN APP COMPONENT -----------------------------
 
-function InputScreen({ onBack, onSubmit }) {
-  const [text, setText] = useState("");
-  const [images, setImages] = useState([]);
-  const [fileError, setFileError] = useState(null);
-  
-  const cameraInputRef = useRef(null);
-  const galleryInputRef = useRef(null);
+export default function App() {
+  const [subjects, setSubjects] = useState([]);
+  const [screen, setScreen] = useState("home"); // home, input, processing, lesson, quizConfig, quiz, results, history
+  const [currentSubjectId, setCurrentSubjectId] = useState(null);
+  const [doneStep, setDoneStep] = useState(0);
+  const [tempInput, setTempInput] = useState(null);
+  const [currentQuizPack, setCurrentQuizPack] = useState(null);
 
-  const addFile = (file) => {
-    setFileError(null);
-    if (!file) return;
-    if (!file.type || !file.type.startsWith("image/")) {
-      setFileError("Selecione um arquivo de imagem válido.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onerror = () => setFileError("Não foi possível ler essa imagem. Tente outra.");
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      const base64 = String(dataUrl).split(",")[1];
-      if (!base64) { setFileError("Não foi possível processar essa imagem."); return; }
-      setImages((prev) => [...prev, { id: uid(), base64, mediaType: file.type || "image/jpeg", previewUrl: dataUrl }]);
-    };
-    reader.readAsDataURL(file);
+  useEffect(() => {
+    loadData().then(d => {
+      if (d && d.subjects) setSubjects(d.subjects);
+    });
+  }, []);
+
+  const saveToStorage = (newSubjects) => {
+    setSubjects(newSubjects);
+    saveData({ subjects: newSubjects });
   };
 
-  const removeImage = (id) => setImages((prev) => prev.filter((img) => img.id !== id));
+  const handleCreateStudy = async ({ text, images }) => {
+    setScreen("processing");
+    setDoneStep(0);
 
-  const canContinue = text.trim().length > 0 || images.length > 0;
+    const interval = setInterval(() => {
+      setDoneStep(prev => (prev < 4 ? prev + 1 : prev));
+    }, 1200);
 
-  return (
-    <div className="min-h-screen bg-white pb-28">
-      <TopBar title="Novo estudo" onBack={onBack} />
-      <div className="p-5">
-        <p className="text-sm text-slate-500 mb-3">Escreva o conteúdo, tire fotos ou envie imagens — você pode combinar os dois.</p>
-
-        {fileError && <p className="text-sm text-rose-600 bg-rose-50 rounded-xl p-3 mb-3">{fileError}</p>}
-
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Cole ou digite o conteúdo que você quer estudar (opcional se enviar foto)..."
-          className="w-full h-40 p-4 rounded-2xl border border-slate-200 focus:border-indigo-400 focus:outline-none resize-none text-slate-800"
-        />
-
-        <input 
-          ref={cameraInputRef}
-          type="file" 
-          accept="image/*" 
-          capture="environment" 
-          className="hidden" 
-          onChange={(e) => { addFile(e.target.files?.[0]); e.target.value = ""; }} 
-        />
-        <input 
-          ref={galleryInputRef}
-          type="file" 
-          accept="image/*" 
-          className="hidden" 
-          onChange={(e) => { addFile(e.target.files?.[0]); e.target.value = ""; }} 
-        />
-
-        <div className="flex gap-3 mt-3">
-          <button 
-            type="button" 
-            onClick={() => cameraInputRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 text-slate-700 font-medium text-sm hover:border-indigo-300 hover:bg-indigo-50/40 transition"
-          >
-            <Camera className="w-4 h-4 text-indigo-600" /> Tirar foto
-          </button>
-          <button 
-            type="button" 
-            onClick={() => galleryInputRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 text-slate-700 font-medium text-sm hover:border-indigo-300 hover:bg-indigo-50/40 transition"
-          >
-            <ImageIcon className="w-4 h-4 text-violet-600" /> Galeria
-          </button>
-        </div>
-
-        {images.length > 0 && (
-          <div className="flex gap-3 mt-4 overflow-x-auto pb-1">
-            {images.map((img) => (
-              <div key={img.id} className="relative shrink-0">
-                <img src={img.previewUrl} alt="anexo" className="w-20 h-20 object-cover rounded-xl border border-slate-100" />
-                <button onClick={() => removeImage(img.id)} className="absolute -top-1.5 -right-1.5 bg-slate-900 text-white rounded-full w-5 h-5 flex items-center justify-center">
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 p-4">
-        <button
-          disabled={!canContinue}
-          onClick={() => onSubmit({ text: text.trim(), images })}
-          className="w-full bg-indigo-600 text-white rounded-2xl py-4 font-semibold disabled:opacity-40"
-        >
-          Continuar
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ----------------------------- PROCESSING -----------------------------
-
-const PROCESS_STEPS = [
-  "Identificando assunto",
-  "Separando tópicos",
-  "Encontrando conceitos importantes",
-  "Preparando explicação",
-  "Procurando materiais complementares",
-];
-
-function ProcessingScreen({ doneStep }) {
-  return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-8">
-      <Sparkles className="w-9 h-9 text-indigo-500 mb-4" />
-      <p className="font-semibold text-slate-900 mb-6">Analisando seu material...</p>
-      <div className="w-full max-w-xs space-y-3">
-        {PROCESS_STEPS.map((step, i) => (
-          <div key={step} className="flex items-center gap-3 text-sm">
-            {i < doneStep ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-            ) : i === doneStep ? (
-              <Spinner className="w-4 h-4 text-indigo-500 shrink-0" />
-            ) : (
-              <span className="w-4 h-4 rounded-full border border-slate-200 shrink-0" />
-            )}
-            <span className={i <= doneStep ? "text-slate-700" : "text-slate-300"}>{step}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ----------------------------- LESSON -----------------------------
-
-function LessonScreen({ subject, onBack, onReady, onHome }) {
-  const lesson = subject.lesson;
-  return (
-    <div className="min-h-screen bg-white pb-28">
-      <TopBar title={lesson.subject} onBack={onBack} right={<button onClick={onHome}><Home className="w-5 h-5 text-slate-400" /></button>} />
-      <div className="px-5 py-2">
-        <span className="inline-block text-xs font-medium bg-indigo-50 text-indigo-600 rounded-full px-3 py-1">{lesson.level}</span>
-      </div>
-
-      <div className="px-5 mt-4">
-        <h2 className="font-semibold text-slate-900 mb-2">O que você vai aprender</h2>
-        <ul className="space-y-1.5 mb-6">
-          {(lesson.objectives || []).map((o, i) => (
-            <li key={i} className="flex gap-2 text-sm text-slate-600"><span className="text-indigo-400">—</span>{o}</li>
-          ))}
-        </ul>
-
-        <h2 className="font-semibold text-slate-900 mb-3">Explicação completa</h2>
-        <div className="space-y-4 mb-6">
-          {(lesson.sections || []).map((sec, i) => (
-            <div key={i} className="relative pl-4 border-l-2 border-indigo-100">
-              <p className="font-medium text-slate-900">{sec.concept}</p>
-              <p className="text-sm text-slate-600 mt-1">{sec.explanation}</p>
-              {sec.example && (
-                <p className="text-sm text-slate-500 mt-2 bg-slate-50 rounded-xl p-3"><span className="font-medium text-slate-600">Exemplo real: </span>{sec.example}</p>
-              )}
-              {sec.whyMatters && (
-                <p className="text-sm text-indigo-600 mt-2"><span className="font-medium">Por que isso importa? </span>{sec.whyMatters}</p>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <h2 className="font-semibold text-slate-900 mb-2">Resumo rápido</h2>
-        <p className="text-sm text-slate-600 mb-4">{lesson.summary}</p>
-
-        <h2 className="font-semibold text-slate-900 mb-2">O que você precisa memorizar</h2>
-        <ul className="space-y-1.5 mb-4">
-          {(lesson.keyPoints || []).map((k, i) => (
-            <li key={i} className="flex gap-2 text-sm text-slate-600"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />{k}</li>
-          ))}
-        </ul>
-
-        <h2 className="font-semibold text-slate-900 mb-2">Erros que você deve evitar</h2>
-        <ul className="space-y-1.5 mb-6">
-          {(lesson.commonMistakes || []).map((k, i) => (
-            <li key={i} className="flex gap-2 text-sm text-slate-600"><AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />{k}</li>
-          ))}
-        </ul>
-
-        {lesson.mindMap && (
-          <div className="mb-6">
-            <h2 className="font-semibold text-slate-900 mb-3">Mapa mental</h2>
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="font-semibold text-indigo-700 text-center mb-3">{lesson.mindMap.center}</p>
-              <div className="grid grid-cols-1 gap-2">
-                {(lesson.mindMap.branches || []).map((b, i) => (
-                  <div key={i} className="bg-white rounded-xl p-3 border border-slate-100">
-                    <p className="text-sm font-medium text-slate-800">{b.topic}</p>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {(b.children || []).map((c, j) => (
-                        <span key={j} className="text-xs bg-indigo-50 text-indigo-600 rounded-full px-2 py-0.5">{c}</span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mb-6">
-          <h2 className="font-semibold text-slate-900 mb-3 flex items-center gap-2"><Youtube className="w-4 h-4 text-rose-500" /> Vídeos recomendados</h2>
-          {lesson.videos && lesson.videos.length > 0 ? (
-            <div className="space-y-3">
-              {lesson.videos.map((v, i) => (
-                <a key={i} href={v.url} target="_blank" rel="noopener noreferrer" className="block border border-slate-100 rounded-2xl p-3 hover:border-indigo-200 transition">
-                  <p className="font-medium text-slate-900 text-sm">{v.title}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{v.channel}{v.duration ? ` · ${v.duration}` : ""}</p>
-                  <p className="text-xs text-slate-500 mt-1.5">{v.reason}</p>
-                  <span className="inline-block mt-2 text-xs font-medium text-indigo-600">Assistir →</span>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-400">{lesson.videosNote || "Não encontramos um vídeo suficientemente relevante para este conteúdo."}</p>
-          )}
-        </div>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 p-4">
-        <button onClick={onReady} className="w-full bg-indigo-600 text-white rounded-2xl py-4 font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition">
-          Estou pronto para testar meus conhecimentos <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ----------------------------- QUIZ CONFIG -----------------------------
-
-function QuizConfigScreen({ onBack, onStart, defaultSpec }) {
-  const [count, setCount] = useState(10);
-  const [customCount, setCustomCount] = useState("");
-  const [difficulty, setDifficulty] = useState("misturado");
-  const [spec, setSpec] = useState(defaultSpec || "");
-
-  const finalCount = count === "custom" ? (parseInt(customCount, 10) || 10) : count;
-
-  return (
-    <div className="min-h-screen bg-white">
-      <TopBar title="Fazer um simulado" onBack={onBack} />
-      <div className="p-5 space-y-6">
-        <div>
-          <p className="font-medium text-slate-900 mb-3">Quantidade de questões</p>
-          <div className="flex flex-wrap gap-2">
-            {[5, 10, 15, 20, 30].map((n) => (
-              <button key={n} onClick={() => setCount(n)} className={`px-4 py-2 rounded-xl text-sm font-medium border ${count === n ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-200 text-slate-600"}`}>{n}</button>
-            ))}
-            <button onClick={() => setCount("custom")} className={`px-4 py-2 rounded-xl text-sm font-medium border ${count === "custom" ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-200 text-slate-600"}`}>Personalizado</button>
-          </div>
-          {count === "custom" && (
-            <input type="number" min={1} max={60} value={customCount} onChange={(e) => setCustomCount(e.target.value)} placeholder="Nº de questões" className="mt-3 w-full p-3 rounded-xl border border-slate-200 focus:border-indigo-400 focus:outline-none" />
-          )}
-        </div>
-
-        <div>
-          <p className="font-medium text-slate-900 mb-3">Dificuldade</p>
-          <div className="flex flex-wrap gap-2">
-            {["fácil", "médio", "difícil", "misturado"].map((d) => (
-              <button key={d} onClick={() => setDifficulty(d)} className={`px-4 py-2 rounded-xl text-sm font-medium border capitalize ${difficulty === d ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-200 text-slate-600"}`}>{d}</button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <p className="font-medium text-slate-900 mb-2">Quer alguma especificação?</p>
-          <textarea value={spec} onChange={(e) => setSpec(e.target.value)} placeholder='Ex: "Faça questões mais difíceis", "Foque nas causas", "Mais questões de cálculo"...' className="w-full h-24 p-3 rounded-xl border border-slate-200 focus:border-indigo-400 focus:outline-none resize-none text-sm" />
-        </div>
-
-        <button onClick={() => onStart({ count: finalCount, difficulty, spec })} className="w-full bg-indigo-600 text-white rounded-2xl py-4 font-semibold active:scale-[0.98] transition">
-          Gerar simulado
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ----------------------------- QUIZ -----------------------------
-
-function QuestionRenderer({ q, value, onChange }) {
-  if (q.type === "multiple_choice") {
-    return (
-      <div className="space-y-2">
-        {(q.options || []).map((opt) => (
-          <button key={opt.id} onClick={() => onChange(opt.id)} className={`w-full text-left p-3 rounded-xl border text-sm ${value === opt.id ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-700"}`}>
-            {opt.text}
-          </button>
-        ))}
-      </div>
-    );
-  }
-  if (q.type === "true_false") {
-    return (
-      <div className="flex gap-3">
-        {["Verdadeiro", "Falso"].map((label, i) => {
-          const v = i === 0;
-          return (
-            <button key={label} onClick={() => onChange(v)} className={`flex-1 py-3 rounded-xl border text-sm font-medium ${value === v ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-700"}`}>{label}</button>
-          );
-        })}
-      </div>
-    );
-  }
-  if (q.type === "matching") {
-    const map = value || {};
-    return (
-      <div className="space-y-3">
-        {(q.pairs || []).map((p, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="text-sm text-slate-700 flex-1">{p.left}</span>
-            <select value={map[p.left] || ""} onChange={(e) => onChange({ ...map, [p.left]: e.target.value })} className="flex-1 p-2 rounded-lg border border-slate-200 text-sm">
-              <option value="">Escolher...</option>
-              {(q.rightOptions || []).map((r, j) => <option key={j} value={r}>{r}</option>)}
-            </select>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return (
-    <textarea
-      value={value || ""}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={q.type === "essay" ? "Escreva sua resposta completa..." : "Digite sua resposta..."}
-      className={`w-full p-3 rounded-xl border border-slate-200 focus:border-indigo-400 focus:outline-none resize-none text-sm ${q.type === "essay" ? "h-32" : "h-20"}`}
-    />
-  );
-}
-
-function QuizScreen({ subject, quizPack, onFinish, onBack }) {
-  const questions = quizPack.questions || [];
-  const [idx, setIdx] = useState(0);
-  const [answer, setAnswer] = useState(null);
-  const [submitted, setSubmitted] = useState(false);
-  const [grading, setGrading] = useState(false);
-  const [feedback, setFeedback] = useState(null);
-  const [showCalc, setShowCalc] = useState(false);
-  const [results, setResults] = useState([]);
-
-  const q = questions[idx];
-  const progress = questions.length ? ((idx) / questions.length) * 100 : 0;
-
-  if (!q) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-400">Nenhuma questão disponível.</div>;
-  }
-
-  const gradeLocally = () => {
-    if (q.type === "multiple_choice") {
-      const correct = answer === q.correctAnswer;
-      return { isCorrect: correct, score: correct ? 1 : 0, explanation: q.explanation };
-    }
-    if (q.type === "true_false") {
-      const correct = answer === q.correctAnswer;
-      return { isCorrect: correct, score: correct ? 1 : 0, explanation: q.explanation };
-    }
-    if (q.type === "matching") {
-      const map = answer || {};
-      let correctCount = 0;
-      (q.pairs || []).forEach((p) => { if (map[p.left] === p.right) correctCount++; });
-      const score = (q.pairs && q.pairs.length) ? correctCount / q.pairs.length : 0;
-      return { isCorrect: score === 1, score, explanation: q.explanation };
-    }
-    return null;
-  };
-
-  const submitAnswer = async () => {
-    setSubmitted(true);
-    const local = gradeLocally();
-    if (local) {
-      setFeedback(local);
-      setResults((r) => [...r, { question: q, userAnswer: answer, ...local }]);
-      return;
-    }
-    setGrading(true);
     try {
-      const system = `Você é um tutor de IA corrigindo uma resposta de estudante. Responda APENAS com um JSON válido no formato:
-{"score": 0.0 a 1.0, "isCorrect": true/false, "explanation": "por que a resposta correta está certa", "missing": "conceitos que faltaram (ou vazio)", "howTo": "como pensar corretamente"}
-Avalie o conteúdo semântico, não exija palavras exatas. Considere respostas parcialmente corretas.`;
-      const userMsg = `Pergunta: ${q.prompt}\nTipo: ${q.type}\nResposta esperada / gabarito: ${q.correctAnswer || q.explanation}\nResposta do estudante: ${typeof answer === "string" ? answer : JSON.stringify(answer)}`;
-      const data = await callGemini({ system, messages: [{ role: "user", content: userMsg }], max_tokens: 800 });
-      const parsed = extractJSON(extractText(data)) || { score: 0, isCorrect: false, explanation: q.explanation, missing: "", howTo: "" };
-      setFeedback(parsed);
-      setResults((r) => [...r, { question: q, userAnswer: answer, ...parsed }]);
+      const system = `Você é um professor especialista. Analise o material enviado e crie um objeto JSON estruturado com a seguinte estrutura exata:
+{
+  "subject": "Nome da matéria ou tópico",
+  "level": "Nível de ensino (ex: Ensino Fundamental, Médio, Superior)",
+  "objectives": ["Objetivo 1", "Objetivo 2"],
+  "sections": [
+    {
+      "concept": "Conceito 1",
+      "explanation": "Explicação detalhada...",
+      "example": "Exemplo prático...",
+      "whyMatters": "Por que isso importa..."
+    }
+  ],
+  "summary": "Resumo rápido...",
+  "keyPoints": ["Ponto 1", "Ponto 2"],
+  "commonMistakes": ["Erro 1"],
+  "mindMap": {
+    "center": "Tema Central",
+    "branches": [
+      { "topic": "Ramo 1", "children": ["Sub 1", "Sub 2"] }
+    ]
+  },
+  "videos": [
+    { "title": "Título do vídeo", "channel": "Canal", "url": "[https://youtube.com/](https://youtube.com/)...", "reason": "Por que assistir" }
+  ]
+}`;
+
+      const messages = [{ role: "user", content: text || "Analise as imagens anexadas para criar o conteúdo de estudo." }];
+      const data = await callGemini({ system, messages, max_tokens: 4000 });
+      const rawText = extractText(data);
+      const lessonJson = extractJSON(rawText);
+
+      clearInterval(interval);
+      setDoneStep(5);
+
+      if (!lessonJson) {
+        throw new Error("Não foi possível gerar a aula.");
+      }
+
+      const newSub = {
+        id: uid(),
+        title: lessonJson.subject || "Estudo",
+        level: lessonJson.level || "Geral",
+        lesson: lessonJson,
+        quizzes: []
+      };
+
+      const updated = [...subjects, newSub];
+      saveToStorage(updated);
+      setCurrentSubjectId(newSub.id);
+
+      setTimeout(() => {
+        setScreen("lesson");
+      }, 600);
+
     } catch (e) {
-      const fallback = { score: 0, isCorrect: false, explanation: q.explanation, missing: "", howTo: "Não foi possível avaliar automaticamente." };
-      setFeedback(fallback);
-      setResults((r) => [...r, { question: q, userAnswer: answer, ...fallback }]);
-    } finally {
-      setGrading(false);
+      clearInterval(interval);
+      alert("Erro ao processar o estudo. Tente novamente.");
+      setScreen("home");
     }
   };
 
-  const next = () => {
-    if (idx + 1 >= questions.length) {
-      onFinish(results);
-    } else {
-      setIdx(idx + 1);
-      setAnswer(null);
-      setSubmitted(false);
-      setFeedback(null);
-    }
-  };
+  const currentSubject = subjects.find(s => s.id === currentSubjectId);
 
   return (
-    <div className="min-h-screen bg-white pb-28">
-      <TopBar title={subject.lesson?.subject || "Simulado"} onBack={onBack} />
-      <div className="px-5 pt-3">
-        <div className="flex justify-between text-xs text-slate-400 mb-1.5">
-          <span>Questão {idx + 1} de {questions.length}</span>
-          {q.requiresCalculator && (
-            <button onClick={() => setShowCalc(true)} className="flex items-center gap-1 text-indigo-600 font-medium"><CalcIcon className="w-3.5 h-3.5" /> Calculadora</button>
-          )}
-        </div>
-        <ProgressBar value={progress} />
-      </div>
+    <div className="max-w-md mx-auto min-h-screen bg-white relative shadow-2xl">
+      {screen === "home" && (
+        <HomeScreen
+          subjects={subjects}
+          onNewStudy={() => setScreen("input")}
+          onOpenSubject={(id) => { setCurrentSubjectId(id); setScreen("lesson"); }}
+          onHistory={() => setScreen("history")}
+        />
+      )}
 
-      <div className="px-5 mt-6">
-        <span className="text-xs font-medium bg-slate-100 text-slate-500 rounded-full px-2.5 py-1 capitalize">{q.topic}</span>
-        <p className="font-medium text-slate-900 mt-3 mb-4 leading-relaxed">{q.prompt}</p>
-
-        {!submitted && (
-          <>
-            <QuestionRenderer q={q} value={answer} onChange={setAnswer} />
+      {screen === "input" && (
+        <div className="min-h-screen bg-white pb-28">
+          <TopBar title="Novo estudo" onBack={() => setScreen("home")} />
+          <div className="p-5">
+            <p className="text-sm text-slate-500 mb-3">Cole ou digite o conteúdo que você quer estudar:</p>
+            <textarea
+              id="study-input-text"
+              placeholder="Digite o conteúdo aqui..."
+              className="w-full h-40 p-4 rounded-2xl border border-slate-200 focus:border-indigo-400 focus:outline-none resize-none text-slate-800"
+            />
             <button
-              disabled={answer === null || answer === "" || (q.type === "matching" && Object.keys(answer || {}).length < (q.pairs || []).length)}
-              onClick={submitAnswer}
-              className="w-full mt-6 bg-indigo-600 text-white rounded-2xl py-3.5 font-semibold disabled:opacity-40"
+              onClick={() => {
+                const txt = document.getElementById("study-input-text").value;
+                if (txt.trim()) handleCreateStudy({ text: txt, images: [] });
+              }}
+              className="w-full mt-4 bg-indigo-600 text-white rounded-2xl py-4 font-semibold"
             >
-              Responder
-            </button>
-          </>
-        )}
-
-        {submitted && grading && (
-          <div className="flex items-center gap-2 text-slate-500 text-sm mt-4"><Spinner className="w-4 h-4" /> Corrigindo sua resposta...</div>
-        )}
-
-        {submitted && !grading && feedback && (
-          <div className="mt-4">
-            <div className={`rounded-2xl p-4 ${feedback.isCorrect ? "bg-emerald-50 border border-emerald-100" : "bg-rose-50 border border-rose-100"}`}>
-              <div className={`flex items-center gap-2 font-semibold mb-2 ${feedback.isCorrect ? "text-emerald-700" : "text-rose-600"}`}>
-                {feedback.isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                {feedback.isCorrect ? "Correto!" : "Incorreto"}
-              </div>
-              {!feedback.isCorrect && q.type !== "essay" && q.type !== "short_answer" && (
-                <p className="text-sm text-slate-600 mb-1"><span className="font-medium">Sua resposta:</span> {typeof answer === "string" ? answer : JSON.stringify(answer)}</p>
-              )}
-              {q.correctAnswer && q.type !== "essay" && (
-                <p className="text-sm text-slate-600 mb-2"><span className="font-medium">Resposta correta:</span> {typeof q.correctAnswer === "string" ? q.correctAnswer : JSON.stringify(q.correctAnswer)}</p>
-              )}
-              <p className="text-sm text-slate-700">{feedback.explanation}</p>
-              {feedback.missing && <p className="text-sm text-amber-700 mt-2"><span className="font-medium">O que faltou:</span> {feedback.missing}</p>}
-              {feedback.howTo && <p className="text-sm text-indigo-700 mt-2"><span className="font-medium">Como pensar corretamente:</span> {feedback.howTo}</p>}
-            </div>
-            <button onClick={next} className="w-full mt-4 bg-indigo-600 text-white rounded-2xl py-3.5 font-semibold">
-              {idx + 1 >= questions.length ? "Ver resultado" : "Próxima questão →"}
+              Continuar
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {showCalc && <Calculator onClose={() => setShowCalc(false)} />}
+      {screen === "processing" && <ProcessingScreen doneStep={doneStep} />}
+
+      {screen === "lesson" && currentSubject && (
+        <LessonScreen
+          subject={currentSubject}
+          onBack={() => setScreen("home")}
+          onReady={() => setScreen("quizConfig")}
+          onHome={() => setScreen("home")}
+        />
+      )}
+
+      {screen === "quizConfig" && (
+        <div className="min-h-screen bg-white">
+          <TopBar title="Configurar Simulado" onBack={() => setScreen("lesson")} />
+          <div className="p-5 space-y-6">
+            <button
+              onClick={async () => {
+                setScreen("processing");
+                try {
+                  const system = `Crie um simulado em JSON com 5 questões de múltipla escolha sobre a matéria. Formato:
+{
+  "questions": [
+    {
+      "type": "multiple_choice",
+      "topic": "Tópico",
+      "prompt": "Pergunta?",
+      "options": [{"id": "a", "text": "Opção A"}, {"id": "b", "text": "Opção B"}],
+      "correctAnswer": "a",
+      "explanation": "Explicação..."
+    }
+  ]
+}`;
+                  const data = await callGemini({ system, messages: [{ role: "user", content: currentSubject.title }] });
+                  const qPack = extractJSON(extractText(data));
+                  setCurrentQuizPack(qPack);
+                  setScreen("quiz");
+                } catch (e) {
+                  alert("Erro ao criar simulado.");
+                  setScreen("lesson");
+                }
+              }}
+              className="w-full bg-indigo-600 text-white rounded-2xl py-4 font-semibold"
+            >
+              Gerar Simulado Rápido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {screen === "quiz" && currentQuizPack && (
+        <div className="p-5">
+          <p className="font-bold mb-4">Simulado em Andamento</p>
+          <button onClick={() => setScreen("home")} className="bg-indigo-600 text-white px-4 py-2 rounded-xl">Voltar ao Início</button>
+        </div>
+      )}
+
+      {screen === "history" && (
+        <div className="min-h-screen bg-white">
+          <TopBar title="Desempenho" onBack={() => setScreen("home")} />
+          <div className="p-5 text-center text-slate-500">Histórico de estudos em breve!</div>
+        </div>
+      )}
     </div>
   );
 }
-
-export default App;
-
-
