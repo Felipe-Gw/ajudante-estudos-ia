@@ -699,7 +699,7 @@ Avalie o conteúdo semântico, não exija palavras exatas. Considere respostas p
             className="w-full bg-indigo-600 text-white rounded-2xl py-4 font-semibold shadow-lg shadow-indigo-100 disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {grading && <Spinner className="w-4 h-4 text-white" />}
-            {grading corrigindoing ? "Corrigindo com IA..." : "Responder"}
+            {grading ? "Corrigindo com IA..." : "Responder"}
           </button>
         ) : (
           <button
