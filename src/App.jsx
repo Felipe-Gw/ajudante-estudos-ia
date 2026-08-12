@@ -722,3 +722,5 @@ Avalie o conteúdo semântico, não exija palavras exatas. Considere respostas p
 }
 
 export default App;
+
+
